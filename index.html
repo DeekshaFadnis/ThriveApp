@@ -18,9 +18,9 @@
         </div>
 
         <nav class="nav-tabs" aria-label="Sections">
-          <button class="nav-tab active" type="button" data-view="dashboard" aria-label="Dashboard" aria-pressed="true">
+          <button class="nav-tab active" type="button" data-view="dashboard" aria-label="Today" aria-pressed="true">
             <span class="icon-grid" aria-hidden="true"></span>
-            <span>Dashboard</span>
+            <span>Today</span>
           </button>
           <button class="nav-tab" type="button" data-view="finances" aria-label="Finances" aria-pressed="false">
             <span class="icon-wallet" aria-hidden="true"></span>
@@ -46,64 +46,49 @@
         <header class="topbar">
           <div>
             <p class="eyebrow">Daily check-in</p>
-            <h2 id="viewTitle">Dashboard</h2>
+            <h2 id="viewTitle">Today</h2>
           </div>
           <div class="top-actions">
             <button class="ghost-button" id="resetDemo" type="button">Reset</button>
-            <button class="primary-button" id="quickWin" type="button">Log quick win</button>
+            <button class="primary-button" id="quickWin" type="button">Mark done</button>
           </div>
         </header>
 
         <section class="view active" id="dashboard" aria-labelledby="dashboard-title">
-          <div class="hero-panel">
+          <article class="priority-card" aria-labelledby="dashboard-title">
             <div>
-              <p class="eyebrow">Your whole life, one calm surface</p>
-              <h2 id="dashboard-title">Stay aware of money, momentum, and wellbeing.</h2>
+              <p class="eyebrow">Today's Priority</p>
+              <h2 id="dashboard-title">Loading</h2>
+              <p id="priorityReason">Looking at your balance, health rhythm, and goals.</p>
             </div>
-            <div class="score-ring" aria-label="Thrive score">
-              <canvas id="scoreCanvas" width="170" height="170"></canvas>
-              <div>
-                <strong id="thriveScore">0</strong>
-                <span>score</span>
-              </div>
+            <div class="priority-action">
+              <strong>Why this matters</strong>
+              <span id="priorityDetail">Preparing your recommendation.</span>
             </div>
-          </div>
+          </article>
 
-          <div class="metric-grid">
-            <article class="metric-card">
-              <p>Monthly balance</p>
+          <div class="focus-strip" aria-label="Current context">
+            <div>
+              <span>Money</span>
               <strong id="balanceMetric">$0</strong>
-              <span id="balanceHint">No entries yet</span>
-            </article>
-            <article class="metric-card">
-              <p>Health streak</p>
+            </div>
+            <div>
+              <span>Health</span>
               <strong id="streakMetric">0 days</strong>
-              <span id="healthHint">Build consistency</span>
-            </article>
-            <article class="metric-card">
-              <p>Goals moving</p>
+            </div>
+            <div>
+              <span>Goals</span>
               <strong id="goalsMetric">0%</strong>
-              <span id="goalsHint">Progress average</span>
-            </article>
+            </div>
           </div>
 
-          <div class="split-layout">
-            <section class="panel">
-              <div class="panel-heading">
-                <h3>Week at a glance</h3>
-                <span>Energy and spending</span>
-              </div>
-              <canvas class="wide-chart" id="weeklyCanvas" width="820" height="300"></canvas>
-            </section>
-
-            <section class="panel">
-              <div class="panel-heading">
-                <h3>Next best actions</h3>
-                <span>Generated from your entries</span>
-              </div>
-              <ul class="action-list" id="actionList"></ul>
-            </section>
-          </div>
+          <section class="panel quiet-panel">
+            <div class="panel-heading">
+              <h3>Why this today</h3>
+              <span id="dailySummary">Loading</span>
+            </div>
+            <p id="prioritySupport" class="support-copy">Thrive weighs your cash flow, recent health logs, and goal progress, then picks one place to move.</p>
+          </section>
         </section>
 
         <section class="view" id="finances" aria-labelledby="finances-title">
@@ -150,10 +135,9 @@
 
             <section class="panel data-panel">
               <div class="panel-heading">
-                <h3>Monthly flow</h3>
+                <h3>Recent money</h3>
                 <span id="financeSummary">Loading</span>
               </div>
-              <canvas class="wide-chart" id="financeCanvas" width="820" height="320"></canvas>
               <div class="list" id="moneyList"></div>
             </section>
           </div>
@@ -194,10 +178,9 @@
 
             <section class="panel data-panel">
               <div class="panel-heading">
-                <h3>Wellbeing rhythm</h3>
+                <h3>Health basics</h3>
                 <span id="healthSummary">Loading</span>
               </div>
-              <canvas class="wide-chart" id="healthCanvas" width="820" height="320"></canvas>
               <div class="habit-row" id="habitRow"></div>
             </section>
           </div>

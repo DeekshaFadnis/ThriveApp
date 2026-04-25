@@ -103,6 +103,51 @@ function getThriveScore() {
   return Math.round(moneyScore * 0.3 + healthScore * 0.3 + goalScore * 0.3 + winScore * 0.1);
 }
 
+function getLowestGoal() {
+  return state.goals.reduce((lowest, goal) => {
+    if (!lowest || Number(goal.progress) < Number(lowest.progress)) return goal;
+    return lowest;
+  }, null);
+}
+
+function getPriority(balance, healthScore, goalAverage) {
+  const lowestGoal = getLowestGoal();
+
+  if (balance < 300) {
+    return {
+      label: "Review spending for 10 minutes",
+      detail: "Your tracked balance is tight, so protecting the next few days matters most.",
+      reason: `${currency.format(balance)} available after tracked expenses.`,
+      support: "Open Finances and look for one flexible expense you can pause or reduce today."
+    };
+  }
+
+  if (healthScore < 70 || state.health.length < 3) {
+    return {
+      label: "Do one health baseline",
+      detail: "Your wellbeing rhythm needs the fastest win: water, movement, or sleep.",
+      reason: `${state.health.length} health logs with a ${healthScore}/100 rhythm.`,
+      support: "Open Health and save one simple log. A small consistent signal beats a perfect plan."
+    };
+  }
+
+  if (lowestGoal && goalAverage < 65) {
+    return {
+      label: `Move "${lowestGoal.name}" forward`,
+      detail: "Your money and health are stable enough today to spend attention on progress.",
+      reason: `Goal progress averages ${goalAverage}%, and this goal is at ${lowestGoal.progress}%.`,
+      support: "Open Goals and add five points after completing one concrete step."
+    };
+  }
+
+  return {
+    label: "Choose a small future-proofing win",
+    detail: "Your core signals look steady, so use today for a low-pressure improvement.",
+    reason: `${currency.format(balance)} balance, ${healthScore}/100 health rhythm, ${goalAverage}% goal progress.`,
+    support: "Pick the area that would make tomorrow feel lighter, then mark it done."
+  };
+}
+
 function drawRing(canvas, value) {
   const ctx = canvas.getContext("2d");
   const size = canvas.width;
@@ -167,71 +212,22 @@ function renderDashboard() {
   const balance = totals.income - totals.expense;
   const goalAverage = getGoalAverage();
   const healthScore = getHealthScore();
-  const thriveScore = getThriveScore();
+  const priority = getPriority(balance, healthScore, goalAverage);
 
   document.querySelector("#balanceMetric").textContent = currency.format(balance);
-  document.querySelector("#balanceHint").textContent =
-    balance >= 0 ? "Available after tracked expenses" : "Spending is ahead of income";
   document.querySelector("#streakMetric").textContent = `${state.health.length} days`;
-  document.querySelector("#healthHint").textContent = `${healthScore}/100 wellbeing rhythm`;
   document.querySelector("#goalsMetric").textContent = `${goalAverage}%`;
-  document.querySelector("#goalsHint").textContent = `${state.goals.length} active goals`;
-  document.querySelector("#thriveScore").textContent = thriveScore;
-
-  drawRing(document.querySelector("#scoreCanvas"), thriveScore);
-  drawBarChart(
-    document.querySelector("#weeklyCanvas"),
-    state.health.map((log) => log.day),
-    [
-      { color: "#2f8f6b", values: state.health.map((log) => log.energy * 10) },
-      { color: "#cf6f5e", values: state.health.map((_, index) => (index + 1) * 12 + 18) }
-    ]
-  );
-
-  const actions = buildActions(balance, goalAverage, healthScore);
-  document.querySelector("#actionList").innerHTML = actions
-    .map((action) => `<li><span class="action-dot"></span><span>${action}</span></li>`)
-    .join("");
-}
-
-function buildActions(balance, goalAverage, healthScore) {
-  const actions = [];
-  if (balance < 600) actions.push("Review flexible spending and protect the next bill cycle.");
-  else actions.push("Move a small surplus toward the goal with the lowest progress.");
-
-  if (healthScore < 70) actions.push("Choose one tiny health baseline for today: water, walk, or bedtime.");
-  else actions.push("Keep the health rhythm steady with one low-friction movement block.");
-
-  if (goalAverage < 50) actions.push("Pick a goal and add a visible next action you can finish this week.");
-  else actions.push("Celebrate progress, then raise the next milestone by a realistic notch.");
-
-  return actions;
+  document.querySelector("#dashboard-title").textContent = priority.label;
+  document.querySelector("#priorityDetail").textContent = priority.detail;
+  document.querySelector("#priorityReason").textContent = priority.reason;
+  document.querySelector("#prioritySupport").textContent = priority.support;
+  document.querySelector("#dailySummary").textContent = "Based on today's signals";
 }
 
 function renderMoney() {
   const totals = getMoneyTotals();
   document.querySelector("#financeSummary").textContent =
     `${currency.format(totals.income)} in, ${currency.format(totals.expense)} out`;
-
-  const categories = [...new Set(state.money.map((item) => item.category))];
-  drawBarChart(
-    document.querySelector("#financeCanvas"),
-    categories,
-    [
-      {
-        color: "#2f8f6b",
-        values: categories.map((category) =>
-          sumMoney(category, "income")
-        )
-      },
-      {
-        color: "#cf6f5e",
-        values: categories.map((category) =>
-          sumMoney(category, "expense")
-        )
-      }
-    ]
-  );
 
   document.querySelector("#moneyList").innerHTML = state.money
     .map(
@@ -258,18 +254,6 @@ function renderHealth() {
   const latest = state.health.at(-1);
   document.querySelector("#healthSummary").textContent =
     latest ? `Latest energy ${latest.energy}/10` : "No logs yet";
-
-  drawBarChart(
-    document.querySelector("#healthCanvas"),
-    state.health.map((log) => log.day),
-    [
-      { color: "#3366a8", values: state.health.map((log) => log.energy * 10) },
-      {
-        color: "#2f8f6b",
-        values: state.health.map((log) => [log.hydration, log.movement, log.sleep].filter(Boolean).length * 25)
-      }
-    ]
-  );
 
   const habitStats = ["hydration", "movement", "sleep"].map((habit) => {
     const count = state.health.filter((log) => log[habit]).length;
