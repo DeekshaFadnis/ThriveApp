@@ -1,59 +1,60 @@
-const STORAGE_KEY = "thrive-state-v1";
+const STORAGE_KEY = "thrive-app-execution-v1";
 
-const seedState = {
-  money: [
-    { id: crypto.randomUUID(), name: "Paycheck", amount: 4200, type: "income", category: "Income" },
-    { id: crypto.randomUUID(), name: "Rent", amount: 1650, type: "expense", category: "Home" },
-    { id: crypto.randomUUID(), name: "Groceries", amount: 184, type: "expense", category: "Food" },
-    { id: crypto.randomUUID(), name: "Gym membership", amount: 62, type: "expense", category: "Wellness" }
-  ],
-  health: [
-    { day: "Mon", energy: 6, hydration: true, movement: true, sleep: false },
-    { day: "Tue", energy: 7, hydration: true, movement: false, sleep: true },
-    { day: "Wed", energy: 5, hydration: false, movement: true, sleep: false },
-    { day: "Thu", energy: 8, hydration: true, movement: true, sleep: true },
-    { day: "Fri", energy: 7, hydration: true, movement: true, sleep: true }
-  ],
-  goals: [
-    { id: crypto.randomUUID(), name: "Build emergency fund", area: "Finances", progress: 42 },
-    { id: crypto.randomUUID(), name: "Run a relaxed 5K", area: "Health", progress: 68 },
-    { id: crypto.randomUUID(), name: "Finish product design course", area: "Learning", progress: 31 }
-  ],
-  wins: 1
+const categoryColors = {
+  Health: "#65e4a3",
+  Finance: "#ffd166",
+  Personal: "#ff7aa8"
+};
+
+const starterState = {
+  activeView: "setup",
+  focusAcceptedId: null,
+  goals: {
+    quarter: "Q2 2026",
+    health: "Train for a marathon in September",
+    finance: "Save for Mexico in September",
+    personal: "I want to create content for my baby towel company and reach 50,000 users",
+    deadline: "September 2026",
+    target: "50,000 users"
+  },
+  strategy: null,
+  actions: []
 };
 
 let state = loadState();
 
-const moneyForm = document.querySelector("#moneyForm");
-const healthForm = document.querySelector("#healthForm");
-const goalForm = document.querySelector("#goalForm");
+const viewTabs = document.querySelectorAll(".view-tab");
 const views = document.querySelectorAll(".view");
-const navTabs = document.querySelectorAll(".nav-tab");
-const title = document.querySelector("#viewTitle");
+const goalForm = document.querySelector("#goalForm");
+const actionForm = document.querySelector("#actionForm");
 
-const currency = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0
-});
+function initialState() {
+  const generated = generatePlan(starterState.goals);
+  return {
+    ...structuredClone(starterState),
+    strategy: generated.strategy,
+    actions: generated.actions
+  };
+}
 
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) return structuredClone(seedState);
+  if (!saved) return initialState();
 
   try {
     return normalizeState(JSON.parse(saved));
   } catch {
-    return structuredClone(seedState);
+    return initialState();
   }
 }
 
 function normalizeState(saved) {
   return {
-    money: Array.isArray(saved.money) ? saved.money : structuredClone(seedState.money),
-    health: Array.isArray(saved.health) ? saved.health : structuredClone(seedState.health),
-    goals: Array.isArray(saved.goals) ? saved.goals : structuredClone(seedState.goals),
-    wins: Number.isFinite(saved.wins) ? saved.wins : seedState.wins
+    activeView: ["setup", "plan", "dashboard"].includes(saved.activeView) ? saved.activeView : "setup",
+    focusAcceptedId: saved.focusAcceptedId ?? null,
+    goals: saved.goals && typeof saved.goals === "object" ? saved.goals : structuredClone(starterState.goals),
+    strategy: saved.strategy ?? null,
+    actions: Array.isArray(saved.actions) ? saved.actions : []
   };
 }
 
@@ -61,248 +62,364 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function setToday() {
-  document.querySelector("#todayLabel").textContent = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric"
-  }).format(new Date());
+function makeId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function getMoneyTotals() {
-  return state.money.reduce(
-    (totals, item) => {
-      totals[item.type] += Number(item.amount);
-      return totals;
-    },
-    { income: 0, expense: 0 }
-  );
+function inferActionType(label) {
+  const text = label.toLowerCase();
+  if (text.includes("run") || text.includes("jog") || text.includes("walk") || text.includes("workout")) return "run";
+  if (text.includes("tiktok") || text.includes("post") || text.includes("content") || text.includes("film")) return "content";
+  if (text.includes("spend") || text.includes("budget") || text.includes("save") || text.includes("money")) return "budget";
+  if (text.includes("plan") || text.includes("write") || text.includes("draft")) return "plan";
+  return "general";
 }
 
-function getGoalAverage() {
-  if (!state.goals.length) return 0;
-  const total = state.goals.reduce((sum, goal) => sum + Number(goal.progress), 0);
-  return Math.round(total / state.goals.length);
+function scoringPreset(category, label) {
+  const type = inferActionType(label);
+  const presets = {
+    run: { relevance: 10, impact: 8, feasibility: 8, effort: 4, reason: ["Directly supports your health goal", "Simple enough to start today", "Builds consistency"] },
+    content: { relevance: 10, impact: 9, feasibility: 7, effort: 5, reason: ["Strong link to your personal goal", "Creates visible progress", "Good weekly impact"] },
+    budget: { relevance: 9, impact: 7, feasibility: 9, effort: 3, reason: ["Protects your finance goal", "Easy to complete", "Keeps the week aligned"] },
+    plan: { relevance: 8, impact: 7, feasibility: 9, effort: 2, reason: ["Clarifies the next step", "Low effort", "Makes future action easier"] },
+    general: { relevance: 7, impact: 7, feasibility: 8, effort: 4, reason: ["Supports the goal", "Reasonable to complete today", "Keeps momentum moving"] }
+  };
+
+  const base = presets[type];
+  if (category === "Finance" && type !== "budget") return { ...base, relevance: Math.max(7, base.relevance - 1) };
+  return { ...base };
 }
 
-function getHealthScore() {
-  if (!state.health.length) return 0;
-  const total = state.health.reduce((sum, log) => {
-    const habits = [log.hydration, log.movement, log.sleep].filter(Boolean).length;
-    return sum + log.energy * 7 + habits * 10;
-  }, 0);
-  return Math.round(total / state.health.length);
-}
-
-function getThriveScore() {
-  const totals = getMoneyTotals();
-  const moneyScore = Math.max(0, Math.min(100, 50 + ((totals.income - totals.expense) / 80)));
-  const healthScore = getHealthScore();
-  const goalScore = getGoalAverage();
-  const winScore = Math.min(100, state.wins * 12);
-  return Math.round(moneyScore * 0.3 + healthScore * 0.3 + goalScore * 0.3 + winScore * 0.1);
-}
-
-function getLowestGoal() {
-  return state.goals.reduce((lowest, goal) => {
-    if (!lowest || Number(goal.progress) < Number(lowest.progress)) return goal;
-    return lowest;
-  }, null);
-}
-
-function getPriority(balance, healthScore, goalAverage) {
-  const lowestGoal = getLowestGoal();
-
-  if (balance < 300) {
-    return {
-      label: "Review spending for 10 minutes",
-      detail: "Your tracked balance is tight, so protecting the next few days matters most.",
-      reason: `${currency.format(balance)} available after tracked expenses.`,
-      support: "Open Finances and look for one flexible expense you can pause or reduce today."
-    };
-  }
-
-  if (healthScore < 70 || state.health.length < 3) {
-    return {
-      label: "Do one health baseline",
-      detail: "Your wellbeing rhythm needs the fastest win: water, movement, or sleep.",
-      reason: `${state.health.length} health logs with a ${healthScore}/100 rhythm.`,
-      support: "Open Health and save one simple log. A small consistent signal beats a perfect plan."
-    };
-  }
-
-  if (lowestGoal && goalAverage < 65) {
-    return {
-      label: `Move "${lowestGoal.name}" forward`,
-      detail: "Your money and health are stable enough today to spend attention on progress.",
-      reason: `Goal progress averages ${goalAverage}%, and this goal is at ${lowestGoal.progress}%.`,
-      support: "Open Goals and add five points after completing one concrete step."
-    };
-  }
-
+function createAction(label, category, detail = "") {
+  const preset = scoringPreset(category, label);
   return {
-    label: "Choose a small future-proofing win",
-    detail: "Your core signals look steady, so use today for a low-pressure improvement.",
-    reason: `${currency.format(balance)} balance, ${healthScore}/100 health rhythm, ${goalAverage}% goal progress.`,
-    support: "Pick the area that would make tomorrow feel lighter, then mark it done."
+    id: makeId("action"),
+    label,
+    category,
+    detail,
+    completed: false,
+    scoring: {
+      relevance: preset.relevance,
+      impact: preset.impact,
+      feasibility: preset.feasibility,
+      effort: preset.effort
+    },
+    reason: preset.reason
   };
 }
 
-function drawRing(canvas, value) {
-  const ctx = canvas.getContext("2d");
-  const size = canvas.width;
-  const center = size / 2;
-  const radius = 70;
-  ctx.clearRect(0, 0, size, size);
-  ctx.lineWidth = 15;
-  ctx.lineCap = "round";
-  ctx.strokeStyle = "#e6ebe6";
-  ctx.beginPath();
-  ctx.arc(center, center, radius, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.strokeStyle = "#2f8f6b";
-  ctx.beginPath();
-  ctx.arc(center, center, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (value / 100));
-  ctx.stroke();
+function generatePlan(goals) {
+  const personalLooksLikeContent = /content|tiktok|video|user|audience|company|brand/i.test(goals.personal);
+  const personalDaily = personalLooksLikeContent ? "Post one short educational product video" : "Spend 20 minutes on the personal goal";
+
+  // This is a simulated strategy layer. Later, replace this function with an AI API call
+  // that reads the user's natural-language goals and returns strategy, weekly actions,
+  // and editable daily actions.
+  return {
+    strategy: {
+      summary: "Turn each goal into one small repeatable daily move.",
+      weekly: [
+        "Pick one weekly health milestone and keep it realistic.",
+        "Protect one finance decision every day.",
+        "Create, test, and learn from simple personal-goal outputs."
+      ],
+      daily: [
+        "Easy 2k jog/run",
+        "No unnecessary spending today",
+        personalDaily
+      ]
+    },
+    actions: [
+      createAction("Easy 2k jog/run", "Health", "This supports your health goal. Small runs build long-term endurance."),
+      createAction("No unnecessary spending today", "Finance", "This supports your finance goal by keeping today inside the plan."),
+      createAction(personalDaily, "Personal", "This turns the personal goal into one visible daily output.")
+    ]
+  };
 }
 
-function drawBarChart(canvas, labels, datasets) {
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-  const padding = 42;
-  const chartHeight = height - padding * 1.6;
-  const max = Math.max(10, ...datasets.flatMap((set) => set.values));
-  const groupWidth = (width - padding * 2) / labels.length;
-  const barWidth = Math.min(34, groupWidth / (datasets.length + 1.7));
+function getPriorityScore(action) {
+  const { relevance, impact, feasibility, effort } = action.scoring;
+  return Math.round((relevance * impact * feasibility) / Math.max(1, effort));
+}
 
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#fbfcfa";
-  ctx.fillRect(0, 0, width, height);
-  ctx.strokeStyle = "#d9ded8";
-  ctx.lineWidth = 1;
+function getPriorityAction() {
+  const openActions = state.actions.filter((action) => !action.completed);
+  const candidates = openActions.length ? openActions : state.actions;
+  return [...candidates].sort((a, b) => getPriorityScore(b) - getPriorityScore(a))[0] ?? null;
+}
 
-  for (let i = 0; i < 4; i += 1) {
-    const y = padding + (chartHeight / 3) * i;
-    ctx.beginPath();
-    ctx.moveTo(padding, y);
-    ctx.lineTo(width - padding, y);
-    ctx.stroke();
+function goalTextFor(category) {
+  const key = category.toLowerCase();
+  return state.goals[key] || `${category} goal`;
+}
+
+function getProgress(category) {
+  const categoryActions = state.actions.filter((action) => action.category === category);
+  if (!categoryActions.length) return 0;
+  const done = categoryActions.filter((action) => action.completed).length;
+  return Math.round((done / categoryActions.length) * 100);
+}
+
+function getMomentumScore() {
+  if (!state.actions.length) return 0;
+  const completed = state.actions.filter((action) => action.completed).length;
+  const completion = (completed / state.actions.length) * 80;
+  const consistency = completed > 0 ? 20 : 0;
+  return Math.round(completion + consistency);
+}
+
+function setView(viewName) {
+  state.activeView = viewName;
+  viewTabs.forEach((tab) => {
+    const active = tab.dataset.view === viewName;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-pressed", String(active));
+  });
+  views.forEach((view) => view.classList.toggle("active", view.id === viewName));
+  saveState();
+}
+
+function fillGoalForm() {
+  goalForm.elements.quarter.value = state.goals.quarter;
+  goalForm.elements.health.value = state.goals.health;
+  goalForm.elements.finance.value = state.goals.finance;
+  goalForm.elements.personal.value = state.goals.personal;
+  goalForm.elements.deadline.value = state.goals.deadline;
+  goalForm.elements.target.value = state.goals.target || "";
+}
+
+function renderStrategy() {
+  const target = document.querySelector("#strategyOutput");
+  if (!state.strategy) {
+    target.innerHTML = `<div class="empty-state">Add goals, then break them into daily actions.</div>`;
+    return;
   }
 
-  labels.forEach((label, index) => {
-    const x = padding + groupWidth * index + groupWidth / 2;
-    datasets.forEach((set, setIndex) => {
-      const value = set.values[index] ?? 0;
-      const barHeight = (value / max) * chartHeight;
-      const barX = x - (datasets.length * barWidth) / 2 + setIndex * (barWidth + 4);
-      const barY = padding + chartHeight - barHeight;
-      ctx.fillStyle = set.color;
-      ctx.fillRect(barX, barY, barWidth, barHeight);
-    });
-    ctx.fillStyle = "#667085";
-    ctx.font = "13px Inter, system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(label, x, height - 16);
-  });
+  target.innerHTML = `
+    <p><strong>Strategy:</strong> ${escapeHtml(state.strategy.summary)}</p>
+    <p><strong>Weekly:</strong></p>
+    <ul class="strategy-list">${state.strategy.weekly.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    <p><strong>Daily:</strong></p>
+    <ul class="strategy-list">${state.strategy.daily.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+  `;
 }
 
-function renderDashboard() {
-  const totals = getMoneyTotals();
-  const balance = totals.income - totals.expense;
-  const goalAverage = getGoalAverage();
-  const healthScore = getHealthScore();
-  const priority = getPriority(balance, healthScore, goalAverage);
+function renderPriority() {
+  const priority = getPriorityAction();
+  const empty = "Add goals and generate actions to get a daily priority.";
+  document.querySelector("#focusTitle").textContent = priority ? priority.label : "No action yet";
+  document.querySelector("#focusText").textContent = priority
+    ? `${priority.detail || "This moves the quarter forward."} Every small action moves you closer.`
+    : empty;
+  document.querySelector("#priorityTitle").textContent = priority ? priority.label : "No priority yet";
+  document.querySelector("#priorityWhy").textContent = priority
+    ? `This supports your ${priority.category.toLowerCase()} goal: ${goalTextFor(priority.category)}`
+    : empty;
+  document.querySelector("#dashboardPriorityText").textContent = priority
+    ? `${priority.label} · ${priority.category}`
+    : empty;
 
-  document.querySelector("#balanceMetric").textContent = currency.format(balance);
-  document.querySelector("#streakMetric").textContent = `${state.health.length} days`;
-  document.querySelector("#goalsMetric").textContent = `${goalAverage}%`;
-  document.querySelector("#dashboard-title").textContent = priority.label;
-  document.querySelector("#priorityDetail").textContent = priority.detail;
-  document.querySelector("#priorityReason").textContent = priority.reason;
-  document.querySelector("#prioritySupport").textContent = priority.support;
-  document.querySelector("#dailySummary").textContent = "Based on today's signals";
+  document.querySelector("#whyList").innerHTML = priority
+    ? priority.reason.map((item) => `<li>${escapeHtml(item)}</li>`).join("")
+    : "<li>Create actions first.</li>";
+
+  document.querySelector("#commitFocus").disabled = !priority;
+  document.querySelector("#commitFocus").textContent =
+    priority && state.focusAcceptedId === priority.id ? "Selected for today" : "I'll do this today";
 }
 
-function renderMoney() {
-  const totals = getMoneyTotals();
-  document.querySelector("#financeSummary").textContent =
-    `${currency.format(totals.income)} in, ${currency.format(totals.expense)} out`;
+function renderActions() {
+  const editableMarkup = state.actions.length
+    ? state.actions.map(renderActionCard).join("")
+    : `<div class="empty-state">No actions yet. Generate a plan from Goal Setup.</div>`;
+  const compactMarkup = state.actions.length
+    ? state.actions.map(renderCompactActionCard).join("")
+    : `<div class="empty-state">No actions yet. Generate a plan from Goal Setup.</div>`;
 
-  document.querySelector("#moneyList").innerHTML = state.money
-    .map(
-      (item) => `
-        <div class="item">
-          <div class="item-info">
-            <strong>${escapeHtml(item.name)}</strong>
-            <span class="item-meta">${escapeHtml(item.category)} · ${item.type}</span>
+  document.querySelector("#actionList").innerHTML = editableMarkup;
+  document.querySelector("#dashboardActions").innerHTML = compactMarkup;
+
+  const done = state.actions.filter((action) => action.completed).length;
+  document.querySelector("#actionsCount").textContent = `${state.actions.length} actions`;
+  document.querySelector("#dashboardActionsCount").textContent = `${done} done`;
+}
+
+function renderCompactActionCard(action) {
+  const checked = action.completed ? "✓" : "";
+  const completedClass = action.completed ? "completed" : "";
+  return `
+    <article class="action-card ${completedClass}">
+      <div class="action-main">
+        <button class="action-check" type="button" data-toggle="${action.id}" aria-label="${action.completed ? "Undo" : "Complete"} ${escapeHtml(action.label)}">${checked}</button>
+        <div class="action-copy">
+          <div class="action-top">
+            <strong>${escapeHtml(action.label)}</strong>
+            <span class="meta-text">${escapeHtml(action.category)}</span>
           </div>
-          <strong class="amount-${item.type}">${item.type === "income" ? "+" : "-"}${currency.format(item.amount)}</strong>
+          <span>${escapeHtml(action.detail || `Supports ${goalTextFor(action.category)}`)}</span>
         </div>
-      `
-    )
-    .join("");
+      </div>
+    </article>
+  `;
 }
 
-function sumMoney(category, type) {
-  return state.money
-    .filter((item) => item.category === category && item.type === type)
-    .reduce((sum, item) => sum + Number(item.amount), 0);
-}
-
-function renderHealth() {
-  const latest = state.health.at(-1);
-  document.querySelector("#healthSummary").textContent =
-    latest ? `Latest energy ${latest.energy}/10` : "No logs yet";
-
-  const habitStats = ["hydration", "movement", "sleep"].map((habit) => {
-    const count = state.health.filter((log) => log[habit]).length;
-    return { habit, count };
-  });
-
-  document.querySelector("#habitRow").innerHTML = habitStats
-    .map(
-      ({ habit, count }) => `
-        <div class="habit-pill">
-          <span class="item-meta">${capitalize(habit)}</span>
-          <strong>${count}/${state.health.length}</strong>
+function renderActionCard(action) {
+  const checked = action.completed ? "✓" : "";
+  const completedClass = action.completed ? "completed" : "";
+  return `
+    <article class="action-card ${completedClass}">
+      <div class="action-main">
+        <button class="action-check" type="button" data-toggle="${action.id}" aria-label="${action.completed ? "Undo" : "Complete"} ${escapeHtml(action.label)}">${checked}</button>
+        <div class="action-copy">
+          <div class="action-top">
+            <strong>${escapeHtml(action.label)}</strong>
+            <span class="meta-text">${escapeHtml(action.category)}</span>
+          </div>
+          <span>${escapeHtml(action.detail || `Supports ${goalTextFor(action.category)}`)}</span>
         </div>
-      `
-    )
-    .join("");
+      </div>
+      <div class="action-tools">
+        <button class="tool-button" type="button" data-edit="${action.id}">Save edit</button>
+        <button class="tool-button" type="button" data-delete="${action.id}">Delete</button>
+      </div>
+      <details>
+        <summary>Edit</summary>
+        <div class="edit-grid">
+          <input type="text" value="${escapeAttribute(action.label)}" data-label="${action.id}" />
+          <select data-category="${action.id}">
+            ${["Health", "Finance", "Personal"].map((category) => `<option ${category === action.category ? "selected" : ""}>${category}</option>`).join("")}
+          </select>
+        </div>
+      </details>
+      <details>
+        <summary>Customize</summary>
+        <div class="slider-grid">
+          ${renderSlider(action, "relevance", "Goal relevance")}
+          ${renderSlider(action, "impact", "Impact")}
+          ${renderSlider(action, "feasibility", "Feasibility")}
+          ${renderSlider(action, "effort", "Effort")}
+        </div>
+      </details>
+    </article>
+  `;
 }
 
-function renderGoals() {
-  document.querySelector("#goalSummary").textContent = `${getGoalAverage()}% average progress`;
-  document.querySelector("#goalList").innerHTML = state.goals
-    .map(
-      (goal) => `
+function renderSlider(action, key, label) {
+  return `
+    <label>
+      <span>${label}</span>
+      <input type="range" min="1" max="10" value="${action.scoring[key]}" data-score="${action.id}:${key}" />
+    </label>
+  `;
+}
+
+function renderProgress() {
+  document.querySelector("#goalProgress").innerHTML = ["Health", "Finance", "Personal"]
+    .map((category) => {
+      const progress = getProgress(category);
+      return `
         <article class="goal-card">
           <div class="goal-top">
-            <div class="item-info">
-              <strong>${escapeHtml(goal.name)}</strong>
-              <span class="item-meta">${escapeHtml(goal.area)}</span>
-            </div>
-            <strong>${goal.progress}%</strong>
+            <span class="goal-area">${category}</span>
+            <strong>${progress}%</strong>
           </div>
-          <div class="progress-track" aria-label="${escapeHtml(goal.name)} progress">
-            <div class="progress-fill" style="width: ${goal.progress}%"></div>
-          </div>
-          <div class="goal-controls">
-            <button class="small-button" type="button" data-goal="${goal.id}" data-step="-5">-5</button>
-            <button class="small-button" type="button" data-goal="${goal.id}" data-step="5">+5</button>
+          <h3>${escapeHtml(goalTextFor(category))}</h3>
+          <div class="progress-track" aria-label="${category} progress">
+            <div class="progress-fill" style="width: ${progress}%; background: ${categoryColors[category]}"></div>
           </div>
         </article>
-      `
-    )
+      `;
+    })
     .join("");
+
+  const momentum = getMomentumScore();
+  document.querySelector("#momentumScore").textContent = `${momentum}%`;
+  document.querySelector("#momentumRing").style.setProperty("--ring-progress", `${momentum}%`);
 }
 
 function renderAll() {
-  renderDashboard();
-  renderMoney();
-  renderHealth();
-  renderGoals();
+  fillGoalForm();
+  renderStrategy();
+  renderPriority();
+  renderActions();
+  renderProgress();
+  setView(state.activeView);
+}
+
+function saveGeneratedPlan(event) {
+  event.preventDefault();
+  const form = new FormData(goalForm);
+  state.goals = {
+    quarter: form.get("quarter").trim(),
+    health: form.get("health").trim(),
+    finance: form.get("finance").trim(),
+    personal: form.get("personal").trim(),
+    deadline: form.get("deadline").trim(),
+    target: form.get("target").trim()
+  };
+  const generated = generatePlan(state.goals);
+  state.strategy = generated.strategy;
+  state.actions = generated.actions;
+  state.focusAcceptedId = null;
+  state.activeView = "plan";
+  saveState();
+  renderAll();
+  closeDetails();
+}
+
+function addAction(event) {
+  event.preventDefault();
+  const form = new FormData(actionForm);
+  const label = form.get("label").trim();
+  const category = form.get("category");
+  state.actions.push(createAction(label, category, `Supports ${goalTextFor(category)}`));
+  actionForm.reset();
+  saveState();
+  renderAll();
+}
+
+function findAction(id) {
+  return state.actions.find((action) => action.id === id);
+}
+
+function handleActionClick(event) {
+  const toggle = event.target.closest("[data-toggle]");
+  const deleteButton = event.target.closest("[data-delete]");
+  const editButton = event.target.closest("[data-edit]");
+
+  if (toggle) {
+    const action = findAction(toggle.dataset.toggle);
+    action.completed = !action.completed;
+  }
+
+  if (deleteButton) {
+    state.actions = state.actions.filter((action) => action.id !== deleteButton.dataset.delete);
+  }
+
+  if (editButton) {
+    const action = findAction(editButton.dataset.edit);
+    const labelInput = document.querySelector(`[data-label="${action.id}"]`);
+    const categoryInput = document.querySelector(`[data-category="${action.id}"]`);
+    action.label = labelInput.value.trim() || action.label;
+    action.category = categoryInput.value;
+    const preset = scoringPreset(action.category, action.label);
+    action.reason = preset.reason;
+  }
+
+  if (toggle || deleteButton || editButton) {
+    saveState();
+    renderAll();
+  }
+}
+
+function handleScoreChange(event) {
+  const input = event.target.closest("[data-score]");
+  if (!input) return;
+  const [id, key] = input.dataset.score.split(":");
+  const action = findAction(id);
+  action.scoring[key] = Number(input.value);
+  saveState();
+  renderAll();
 }
 
 function escapeHtml(value) {
@@ -312,96 +429,36 @@ function escapeHtml(value) {
   });
 }
 
-function capitalize(value) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+function escapeAttribute(value) {
+  return escapeHtml(value).replace(/"/g, "&quot;");
 }
 
-navTabs.forEach((tab) => {
-  tab.addEventListener("click", () => {
-    const viewName = tab.dataset.view;
-    navTabs.forEach((button) => {
-      button.classList.toggle("active", button === tab);
-      button.setAttribute("aria-pressed", String(button === tab));
-    });
-    views.forEach((view) => view.classList.toggle("active", view.id === viewName));
-    title.textContent = tab.textContent.trim();
+function closeDetails() {
+  document.querySelectorAll("details").forEach((details) => {
+    details.open = false;
   });
-});
+}
 
-moneyForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const form = new FormData(moneyForm);
-  state.money.unshift({
-    id: crypto.randomUUID(),
-    name: form.get("name").trim(),
-    amount: Math.abs(Number(form.get("amount"))),
-    type: form.get("type"),
-    category: form.get("category")
-  });
-  moneyForm.reset();
+// Future placeholder: notifications can remind the user about the selected daily focus.
+viewTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
+goalForm.addEventListener("submit", saveGeneratedPlan);
+actionForm.addEventListener("submit", addAction);
+document.querySelector("#actionList").addEventListener("click", handleActionClick);
+document.querySelector("#dashboardActions").addEventListener("click", handleActionClick);
+document.querySelector("#actionList").addEventListener("change", handleScoreChange);
+document.querySelector("#dashboardActions").addEventListener("change", handleScoreChange);
+document.querySelector("#commitFocus").addEventListener("click", () => {
+  const priority = getPriorityAction();
+  if (!priority) return;
+  state.focusAcceptedId = priority.id;
   saveState();
   renderAll();
 });
-
-document.querySelector("#energyInput").addEventListener("input", (event) => {
-  document.querySelector("#energyValue").textContent = event.target.value;
-});
-
-healthForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const day = new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(new Date());
-  state.health.push({
-    day,
-    energy: Number(document.querySelector("#energyInput").value),
-    hydration: document.querySelector("#hydrationInput").checked,
-    movement: document.querySelector("#movementInput").checked,
-    sleep: document.querySelector("#sleepInput").checked
-  });
-  state.health = state.health.slice(-7);
+document.querySelector("#resetApp").addEventListener("click", () => {
+  state = initialState();
   saveState();
   renderAll();
+  closeDetails();
 });
 
-document.querySelector("#goalProgress").addEventListener("input", (event) => {
-  document.querySelector("#goalProgressValue").textContent = `${event.target.value}%`;
-});
-
-goalForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const form = new FormData(goalForm);
-  state.goals.unshift({
-    id: crypto.randomUUID(),
-    name: form.get("name").trim(),
-    area: form.get("area"),
-    progress: Number(form.get("progress"))
-  });
-  goalForm.reset();
-  document.querySelector("#goalProgressValue").textContent = "15%";
-  saveState();
-  renderAll();
-});
-
-document.querySelector("#goalList").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-goal]");
-  if (!button) return;
-  const goal = state.goals.find((item) => item.id === button.dataset.goal);
-  if (!goal) return;
-  goal.progress = Math.max(0, Math.min(100, goal.progress + Number(button.dataset.step)));
-  saveState();
-  renderAll();
-});
-
-document.querySelector("#quickWin").addEventListener("click", () => {
-  state.wins += 1;
-  saveState();
-  renderAll();
-});
-
-document.querySelector("#resetDemo").addEventListener("click", () => {
-  state = structuredClone(seedState);
-  saveState();
-  renderAll();
-});
-
-setToday();
 renderAll();

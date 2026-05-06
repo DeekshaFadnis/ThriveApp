@@ -3,233 +3,152 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Thrive</title>
+    <title>ThriveApp</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar" aria-label="Primary">
-        <div class="brand">
-          <div class="brand-mark" aria-hidden="true">T</div>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">Personal execution system</p>
+          <h1>ThriveApp</h1>
+        </div>
+        <button class="ghost-button" id="resetApp" type="button">Reset</button>
+      </header>
+
+      <nav class="view-tabs" aria-label="Main views">
+        <button class="view-tab active" type="button" data-view="setup" aria-pressed="true">Goal Setup</button>
+        <button class="view-tab" type="button" data-view="plan" aria-pressed="false">Daily Plan</button>
+        <button class="view-tab" type="button" data-view="dashboard" aria-pressed="false">Dashboard</button>
+      </nav>
+
+      <section class="view active" id="setup" aria-labelledby="setupTitle">
+        <div class="section-heading">
           <div>
-            <p class="eyebrow">Personal OS</p>
-            <h1>Thrive</h1>
+            <p class="eyebrow">Quarter goals</p>
+            <h2 id="setupTitle">Set the direction</h2>
           </div>
         </div>
 
-        <nav class="nav-tabs" aria-label="Sections">
-          <button class="nav-tab active" type="button" data-view="dashboard" aria-label="Today" aria-pressed="true">
-            <span class="icon-grid" aria-hidden="true"></span>
-            <span>Today</span>
-          </button>
-          <button class="nav-tab" type="button" data-view="finances" aria-label="Finances" aria-pressed="false">
-            <span class="icon-wallet" aria-hidden="true"></span>
-            <span>Finances</span>
-          </button>
-          <button class="nav-tab" type="button" data-view="health" aria-label="Health" aria-pressed="false">
-            <span class="icon-health" aria-hidden="true"></span>
-            <span>Health</span>
-          </button>
-          <button class="nav-tab" type="button" data-view="goals" aria-label="Goals" aria-pressed="false">
-            <span class="icon-target" aria-hidden="true"></span>
-            <span>Goals</span>
-          </button>
-        </nav>
+        <form class="goal-form card" id="goalForm">
+          <label>
+            <span>Quarter name</span>
+            <input name="quarter" type="text" placeholder="Q2 2026" required />
+          </label>
+          <label>
+            <span>Health goal</span>
+            <textarea name="health" rows="3" placeholder="Train for a marathon in September" required></textarea>
+          </label>
+          <label>
+            <span>Finance goal</span>
+            <textarea name="finance" rows="3" placeholder="Save for Mexico in September" required></textarea>
+          </label>
+          <label>
+            <span>Personal goal</span>
+            <textarea name="personal" rows="3" placeholder="I want to create content for my baby towel company and reach 50,000 users" required></textarea>
+          </label>
+          <div class="form-row">
+            <label>
+              <span>Deadline</span>
+              <input name="deadline" type="text" placeholder="September 2026" required />
+            </label>
+            <label>
+              <span>Optional target</span>
+              <input name="target" type="text" placeholder="100 TikToks, $2000 saved" />
+            </label>
+          </div>
+          <button class="primary-button" type="submit">Break this goal into actions</button>
+        </form>
 
-        <div class="sidebar-note">
-          <p>Today</p>
-          <strong id="todayLabel">Loading</strong>
-        </div>
-      </aside>
+        <section class="card plan-output" aria-labelledby="strategyTitle">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">Simulated AI plan</p>
+              <h2 id="strategyTitle">Strategy</h2>
+            </div>
+          </div>
+          <div id="strategyOutput" class="strategy-output"></div>
+        </section>
+      </section>
 
-      <main class="main">
-        <header class="topbar">
+      <section class="view" id="plan" aria-labelledby="planTitle">
+        <section class="focus-card" aria-labelledby="focusTitle">
+          <p class="eyebrow">Today's Focus</p>
+          <h2 id="focusTitle">Loading</h2>
+          <p id="focusText">Small actions build big outcomes.</p>
+          <button class="primary-button small-primary" id="commitFocus" type="button">I'll do this today</button>
+        </section>
+
+        <section class="priority-card" aria-labelledby="priorityTitle">
           <div>
-            <p class="eyebrow">Daily check-in</p>
-            <h2 id="viewTitle">Today</h2>
+            <p class="eyebrow">Today's Priority</p>
+            <h2 id="priorityTitle">Loading</h2>
+            <p id="priorityWhy">ThriveApp chooses the best next action for today.</p>
           </div>
-          <div class="top-actions">
-            <button class="ghost-button" id="resetDemo" type="button">Reset</button>
-            <button class="primary-button" id="quickWin" type="button">Mark done</button>
-          </div>
-        </header>
-
-        <section class="view active" id="dashboard" aria-labelledby="dashboard-title">
-          <article class="priority-card" aria-labelledby="dashboard-title">
-            <div>
-              <p class="eyebrow">Today's Priority</p>
-              <h2 id="dashboard-title">Loading</h2>
-              <p id="priorityReason">Looking at your balance, health rhythm, and goals.</p>
-            </div>
-            <div class="priority-action">
-              <strong>Why this matters</strong>
-              <span id="priorityDetail">Preparing your recommendation.</span>
-            </div>
-          </article>
-
-          <div class="focus-strip" aria-label="Current context">
-            <div>
-              <span>Money</span>
-              <strong id="balanceMetric">$0</strong>
-            </div>
-            <div>
-              <span>Health</span>
-              <strong id="streakMetric">0 days</strong>
-            </div>
-            <div>
-              <span>Goals</span>
-              <strong id="goalsMetric">0%</strong>
-            </div>
-          </div>
-
-          <section class="panel quiet-panel">
-            <div class="panel-heading">
-              <h3>Why this today</h3>
-              <span id="dailySummary">Loading</span>
-            </div>
-            <p id="prioritySupport" class="support-copy">Thrive weighs your cash flow, recent health logs, and goal progress, then picks one place to move.</p>
-          </section>
+          <details class="why-box">
+            <summary>Why this?</summary>
+            <ul id="whyList"></ul>
+          </details>
         </section>
 
-        <section class="view" id="finances" aria-labelledby="finances-title">
-          <div class="section-head">
+        <section class="card" aria-labelledby="actionsTitle">
+          <div class="section-heading">
             <div>
-              <p class="eyebrow">Money</p>
-              <h2 id="finances-title">Track cash flow without spreadsheet fog.</h2>
+              <p class="eyebrow">Daily plan</p>
+              <h2 id="actionsTitle">Actions</h2>
             </div>
+            <span id="actionsCount">0 actions</span>
           </div>
 
-          <div class="workspace-grid">
-            <form class="panel form-panel" id="moneyForm">
-              <h3>Add transaction</h3>
-              <label>
-                <span>Description</span>
-                <input id="moneyName" name="name" type="text" placeholder="Groceries, paycheck, rent" required />
-              </label>
-              <div class="two-col">
-                <label>
-                  <span>Amount</span>
-                  <input id="moneyAmount" name="amount" type="number" step="0.01" placeholder="120" required />
-                </label>
-                <label>
-                  <span>Type</span>
-                  <select id="moneyType" name="type">
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
-                  </select>
-                </label>
-              </div>
-              <label>
-                <span>Category</span>
-                <select id="moneyCategory" name="category">
-                  <option>Home</option>
-                  <option>Food</option>
-                  <option>Transport</option>
-                  <option>Wellness</option>
-                  <option>Income</option>
-                  <option>Other</option>
-                </select>
-              </label>
-              <button class="primary-button full-width" type="submit">Add transaction</button>
-            </form>
+          <form class="add-action" id="actionForm">
+            <input name="label" type="text" placeholder="Add a daily action" required />
+            <select name="category">
+              <option>Health</option>
+              <option>Finance</option>
+              <option>Personal</option>
+            </select>
+            <button class="ghost-button" type="submit">Add</button>
+          </form>
 
-            <section class="panel data-panel">
-              <div class="panel-heading">
-                <h3>Recent money</h3>
-                <span id="financeSummary">Loading</span>
-              </div>
-              <div class="list" id="moneyList"></div>
-            </section>
+          <div class="action-list" id="actionList"></div>
+        </section>
+      </section>
+
+      <section class="view" id="dashboard" aria-labelledby="dashboardTitle">
+        <section class="priority-card dashboard-priority" aria-labelledby="dashboardTitle">
+          <div>
+            <p class="eyebrow">Main focus</p>
+            <h2 id="dashboardTitle">Today’s Priority</h2>
+            <p id="dashboardPriorityText">Loading</p>
+          </div>
+          <div class="momentum-ring" aria-label="Momentum Score">
+            <div class="ring" id="momentumRing"><strong id="momentumScore">0%</strong></div>
+            <span>Momentum</span>
           </div>
         </section>
 
-        <section class="view" id="health" aria-labelledby="health-title">
-          <div class="section-head">
+        <section class="card" aria-labelledby="dashActionsTitle">
+          <div class="section-heading">
             <div>
-              <p class="eyebrow">Health</p>
-              <h2 id="health-title">Keep the basics visible and humane.</h2>
+              <p class="eyebrow">Checklist</p>
+              <h2 id="dashActionsTitle">Today's Actions</h2>
             </div>
+            <span id="dashboardActionsCount">0 done</span>
           </div>
-
-          <div class="workspace-grid">
-            <form class="panel form-panel" id="healthForm">
-              <h3>Log today</h3>
-              <label>
-                <span>Energy</span>
-                <input id="energyInput" name="energy" type="range" min="1" max="10" value="7" />
-              </label>
-              <div class="range-value"><span>Energy level</span><strong id="energyValue">7</strong></div>
-              <div class="check-grid">
-                <label class="check-card">
-                  <input id="hydrationInput" type="checkbox" />
-                  <span>Hydration</span>
-                </label>
-                <label class="check-card">
-                  <input id="movementInput" type="checkbox" />
-                  <span>Movement</span>
-                </label>
-                <label class="check-card">
-                  <input id="sleepInput" type="checkbox" />
-                  <span>Sleep</span>
-                </label>
-              </div>
-              <button class="primary-button full-width" type="submit">Save health log</button>
-            </form>
-
-            <section class="panel data-panel">
-              <div class="panel-heading">
-                <h3>Health basics</h3>
-                <span id="healthSummary">Loading</span>
-              </div>
-              <div class="habit-row" id="habitRow"></div>
-            </section>
-          </div>
+          <div class="action-list compact-list" id="dashboardActions"></div>
         </section>
 
-        <section class="view" id="goals" aria-labelledby="goals-title">
-          <div class="section-head">
+        <section class="card" aria-labelledby="progressTitle">
+          <div class="section-heading">
             <div>
-              <p class="eyebrow">Goals</p>
-              <h2 id="goals-title">Turn intentions into visible progress.</h2>
+              <p class="eyebrow">Progress</p>
+              <h2 id="progressTitle">Goal Progress</h2>
             </div>
           </div>
-
-          <div class="workspace-grid">
-            <form class="panel form-panel" id="goalForm">
-              <h3>Add goal</h3>
-              <label>
-                <span>Goal</span>
-                <input id="goalName" name="name" type="text" placeholder="Build emergency fund" required />
-              </label>
-              <label>
-                <span>Area</span>
-                <select id="goalArea" name="area">
-                  <option>Finances</option>
-                  <option>Health</option>
-                  <option>Career</option>
-                  <option>Home</option>
-                  <option>Learning</option>
-                </select>
-              </label>
-              <label>
-                <span>Progress</span>
-                <input id="goalProgress" name="progress" type="range" min="0" max="100" value="15" />
-              </label>
-              <div class="range-value"><span>Starting progress</span><strong id="goalProgressValue">15%</strong></div>
-              <button class="primary-button full-width" type="submit">Add goal</button>
-            </form>
-
-            <section class="panel data-panel">
-              <div class="panel-heading">
-                <h3>Active goals</h3>
-                <span id="goalSummary">Loading</span>
-              </div>
-              <div class="goal-list" id="goalList"></div>
-            </section>
-          </div>
+          <div class="goal-grid" id="goalProgress"></div>
         </section>
-      </main>
-    </div>
+      </section>
+    </main>
 
     <script src="app.js"></script>
   </body>
