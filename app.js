@@ -23,10 +23,10 @@ const starterState = {
 
 let state = loadState();
 
-const viewTabs = document.querySelectorAll(".view-tab");
-const views = document.querySelectorAll(".view");
-const goalForm = document.querySelector("#goalForm");
-const actionForm = document.querySelector("#actionForm");
+let viewTabs;
+let views;
+let goalForm;
+let actionForm;
 
 function initialState() {
   const generated = generatePlan(starterState.goals);
@@ -39,11 +39,17 @@ function initialState() {
 
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) return initialState();
+  if (!saved) {
+    console.log("saved goals/actions loaded on page load", "none found, using starter state");
+    return initialState();
+  }
 
   try {
-    return normalizeState(JSON.parse(saved));
+    const parsed = normalizeState(JSON.parse(saved));
+    console.log("saved goals/actions loaded on page load", parsed);
+    return parsed;
   } catch {
+    console.log("saved goals/actions loaded on page load", "invalid saved data, using starter state");
     return initialState();
   }
 }
@@ -60,6 +66,7 @@ function normalizeState(saved) {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  console.log("data saved to localStorage", state);
 }
 
 function makeId(prefix) {
@@ -338,6 +345,7 @@ function renderProgress() {
 }
 
 function renderAll() {
+  console.log("render function called", state);
   fillGoalForm();
   renderStrategy();
   renderPriority();
@@ -348,6 +356,7 @@ function renderAll() {
 
 function saveGeneratedPlan(event) {
   event.preventDefault();
+  console.log("form submitted", "goalForm");
   const form = new FormData(goalForm);
   state.goals = {
     quarter: form.get("quarter").trim(),
@@ -357,6 +366,7 @@ function saveGeneratedPlan(event) {
     deadline: form.get("deadline").trim(),
     target: form.get("target").trim()
   };
+  console.log("goal data captured", state.goals);
   const generated = generatePlan(state.goals);
   state.strategy = generated.strategy;
   state.actions = generated.actions;
@@ -369,9 +379,11 @@ function saveGeneratedPlan(event) {
 
 function addAction(event) {
   event.preventDefault();
+  console.log("form submitted", "actionForm");
   const form = new FormData(actionForm);
   const label = form.get("label").trim();
   const category = form.get("category");
+  console.log("goal data captured", { action: label, category });
   state.actions.push(createAction(label, category, `Supports ${goalTextFor(category)}`));
   actionForm.reset();
   saveState();
@@ -439,26 +451,42 @@ function closeDetails() {
   });
 }
 
-// Future placeholder: notifications can remind the user about the selected daily focus.
-viewTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
-goalForm.addEventListener("submit", saveGeneratedPlan);
-actionForm.addEventListener("submit", addAction);
-document.querySelector("#actionList").addEventListener("click", handleActionClick);
-document.querySelector("#dashboardActions").addEventListener("click", handleActionClick);
-document.querySelector("#actionList").addEventListener("change", handleScoreChange);
-document.querySelector("#dashboardActions").addEventListener("change", handleScoreChange);
-document.querySelector("#commitFocus").addEventListener("click", () => {
-  const priority = getPriorityAction();
-  if (!priority) return;
-  state.focusAcceptedId = priority.id;
-  saveState();
-  renderAll();
-});
-document.querySelector("#resetApp").addEventListener("click", () => {
-  state = initialState();
-  saveState();
-  renderAll();
-  closeDetails();
-});
+function initApp() {
+  viewTabs = document.querySelectorAll(".view-tab");
+  views = document.querySelectorAll(".view");
+  goalForm = document.querySelector("#goalForm");
+  actionForm = document.querySelector("#actionForm");
 
-renderAll();
+  console.log("button IDs checked", {
+    resetApp: Boolean(document.querySelector("#resetApp")),
+    commitFocus: Boolean(document.querySelector("#commitFocus")),
+    goalForm: Boolean(goalForm),
+    actionForm: Boolean(actionForm)
+  });
+
+  // Future placeholder: notifications can remind the user about the selected daily focus.
+  viewTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
+  goalForm.addEventListener("submit", saveGeneratedPlan);
+  actionForm.addEventListener("submit", addAction);
+  document.querySelector("#actionList").addEventListener("click", handleActionClick);
+  document.querySelector("#dashboardActions").addEventListener("click", handleActionClick);
+  document.querySelector("#actionList").addEventListener("change", handleScoreChange);
+  document.querySelector("#dashboardActions").addEventListener("change", handleScoreChange);
+  document.querySelector("#commitFocus").addEventListener("click", () => {
+    const priority = getPriorityAction();
+    if (!priority) return;
+    state.focusAcceptedId = priority.id;
+    saveState();
+    renderAll();
+  });
+  document.querySelector("#resetApp").addEventListener("click", () => {
+    state = initialState();
+    saveState();
+    renderAll();
+    closeDetails();
+  });
+
+  renderAll();
+}
+
+document.addEventListener("DOMContentLoaded", initApp);
