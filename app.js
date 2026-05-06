@@ -39,17 +39,11 @@ function initialState() {
 
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) {
-    console.log("saved goals/actions loaded on page load", "none found, using starter state");
-    return initialState();
-  }
+  if (!saved) return initialState();
 
   try {
-    const parsed = normalizeState(JSON.parse(saved));
-    console.log("saved goals/actions loaded on page load", parsed);
-    return parsed;
+    return normalizeState(JSON.parse(saved));
   } catch {
-    console.log("saved goals/actions loaded on page load", "invalid saved data, using starter state");
     return initialState();
   }
 }
@@ -66,7 +60,6 @@ function normalizeState(saved) {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  console.log("data saved to localStorage", state);
 }
 
 function makeId(prefix) {
@@ -211,6 +204,50 @@ function renderStrategy() {
   `;
 }
 
+function renderGoals() {
+  const target = document.querySelector("#savedGoalsContainer");
+  if (!target) return;
+
+  const { quarter, health, finance, personal, deadline, target: numericTarget } = state.goals;
+  target.innerHTML = `
+    <section class="card saved-goals-card" aria-labelledby="savedGoalsTitle">
+      <p class="success-message">Goals saved successfully.</p>
+      <div class="section-heading compact">
+        <div>
+          <p class="eyebrow">Saved Goals</p>
+          <h2 id="savedGoalsTitle">${escapeHtml(quarter || "Quarter goals")}</h2>
+        </div>
+      </div>
+      <dl class="saved-goals-list">
+        <div>
+          <dt>Health</dt>
+          <dd>${escapeHtml(health || "No health goal saved")}</dd>
+        </div>
+        <div>
+          <dt>Finance</dt>
+          <dd>${escapeHtml(finance || "No finance goal saved")}</dd>
+        </div>
+        <div>
+          <dt>Personal</dt>
+          <dd>${escapeHtml(personal || "No personal goal saved")}</dd>
+        </div>
+        <div>
+          <dt>Deadline</dt>
+          <dd>${escapeHtml(deadline || "No deadline saved")}</dd>
+        </div>
+        ${
+          numericTarget
+            ? `<div>
+                <dt>Target</dt>
+                <dd>${escapeHtml(numericTarget)}</dd>
+              </div>`
+            : ""
+        }
+      </dl>
+    </section>
+  `;
+}
+
 function renderPriority() {
   const priority = getPriorityAction();
   const empty = "Add goals and generate actions to get a daily priority.";
@@ -345,8 +382,8 @@ function renderProgress() {
 }
 
 function renderAll() {
-  console.log("render function called", state);
   fillGoalForm();
+  renderGoals();
   renderStrategy();
   renderPriority();
   renderActions();
@@ -356,7 +393,6 @@ function renderAll() {
 
 function saveGeneratedPlan(event) {
   event.preventDefault();
-  console.log("form submitted", "goalForm");
   const form = new FormData(goalForm);
   state.goals = {
     quarter: form.get("quarter").trim(),
@@ -366,12 +402,11 @@ function saveGeneratedPlan(event) {
     deadline: form.get("deadline").trim(),
     target: form.get("target").trim()
   };
-  console.log("goal data captured", state.goals);
   const generated = generatePlan(state.goals);
   state.strategy = generated.strategy;
   state.actions = generated.actions;
   state.focusAcceptedId = null;
-  state.activeView = "plan";
+  state.activeView = "setup";
   saveState();
   renderAll();
   closeDetails();
@@ -379,11 +414,9 @@ function saveGeneratedPlan(event) {
 
 function addAction(event) {
   event.preventDefault();
-  console.log("form submitted", "actionForm");
   const form = new FormData(actionForm);
   const label = form.get("label").trim();
   const category = form.get("category");
-  console.log("goal data captured", { action: label, category });
   state.actions.push(createAction(label, category, `Supports ${goalTextFor(category)}`));
   actionForm.reset();
   saveState();
@@ -456,13 +489,6 @@ function initApp() {
   views = document.querySelectorAll(".view");
   goalForm = document.querySelector("#goalForm");
   actionForm = document.querySelector("#actionForm");
-
-  console.log("button IDs checked", {
-    resetApp: Boolean(document.querySelector("#resetApp")),
-    commitFocus: Boolean(document.querySelector("#commitFocus")),
-    goalForm: Boolean(goalForm),
-    actionForm: Boolean(actionForm)
-  });
 
   // Future placeholder: notifications can remind the user about the selected daily focus.
   viewTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));

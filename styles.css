@@ -231,6 +231,49 @@ select option {
   padding-left: 18px;
 }
 
+.saved-goals-card {
+  display: grid;
+  gap: 14px;
+}
+
+.success-message {
+  width: fit-content;
+  border: 1px solid rgba(101, 228, 163, 0.35);
+  border-radius: 999px;
+  background: rgba(101, 228, 163, 0.14);
+  color: var(--mint);
+  padding: 7px 10px;
+  font-weight: 850;
+}
+
+.saved-goals-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.saved-goals-list div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(243, 234, 211, 0.08);
+  padding: 12px;
+}
+
+.saved-goals-list dt {
+  color: var(--mint);
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.saved-goals-list dd {
+  margin: 0;
+  color: var(--beige);
+  line-height: 1.4;
+}
+
 .add-action {
   grid-template-columns: minmax(0, 1fr) 132px auto;
 }
